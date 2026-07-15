@@ -7,6 +7,10 @@ import { withRetry } from './retry';
 
 type Brief = z.infer<typeof structuredBriefSchema>;
 
+function stripAnsi(text: string): string {
+  return text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+}
+
 export const discoverySchema = z.object({
   message: z.string(),
   state_update: z.object({
@@ -279,9 +283,27 @@ export async function generateChatResponse(args: {
     },
   );
 
+  // DeepSeek sometimes emits ANSI escape codes in its output; strip them.
+  // The ESC character (\x1b) gets dropped by browsers, leaving visible [1m, [36m, [0m fragments.
+  const sanitizePartial = async function* sanitizePartial(
+    stream: AsyncIterable<unknown>,
+  ): AsyncIterable<unknown> {
+    for await (const partial of stream) {
+      if (partial && typeof partial === 'object' && 'message' in partial && typeof (partial as Record<string, unknown>).message === 'string') {
+        const p = partial as Record<string, unknown>;
+        yield { ...p, message: stripAnsi(p.message as string) };
+      } else {
+        yield partial;
+      }
+    }
+  };
+
   return {
-    partialObjectStream: result.partialObjectStream,
-    object: result.object,
+    partialObjectStream: sanitizePartial(result.partialObjectStream),
+    object: result.object.then((obj) => ({
+      ...obj,
+      message: stripAnsi(obj.message),
+    })),
   };
 }
 
@@ -338,7 +360,7 @@ export async function generateInitialAssistantMessage(args: {
     },
   );
 
-  return text;
+  return stripAnsi(text);
 }
 
 export async function generateFallbackResponse(args: {
@@ -353,5 +375,5 @@ export async function generateFallbackResponse(args: {
     })),
   });
 
-  return text;
+  return stripAnsi(text);
 }
