@@ -5,7 +5,6 @@ import { BUSINESS_IDEA_MODEL, openrouter } from '@/lib/llm/provider';
 import { computeBusinessIdeaCoverage } from './coverage';
 import {
   businessIdeaBriefSchema,
-  createDefaultBusinessIdeaBrief,
   type BusinessIdeaBrief,
 } from './schema';
 
@@ -308,16 +307,21 @@ export async function generateBusinessIdeaChatResponse(args: {
 export async function generateBusinessIdeaInitialMessage(args: {
   businessName?: string;
   ideaName?: string;
+  initialContext?: string;
   brief: BusinessIdeaBrief;
   coverage: Coverage;
 }): Promise<string> {
   const hasContent = args.coverage.businessContext > 0 || args.coverage.ideaOpportunity > 0 || args.coverage.projectDefinition > 0;
-  if (!hasContent) return '';
+  const initialContext = args.initialContext?.trim();
+  if (!hasContent && !initialContext) return '';
 
   const prompt = [
     'A business owner has shared an initial description for a new idea.',
     args.businessName ? `Business name: ${args.businessName}` : 'Business name: not provided',
     args.ideaName ? `Idea name: ${args.ideaName}` : 'Idea name: not provided',
+    initialContext
+      ? `Original intake from the owner:\n${initialContext}`
+      : 'Original intake from the owner: not available',
     '',
     formatBusinessIdeaBriefForPrompt(args.brief),
     '',

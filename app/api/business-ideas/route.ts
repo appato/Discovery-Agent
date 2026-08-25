@@ -10,6 +10,20 @@ import { computeBusinessIdeaCoverage } from '@/lib/business-idea/coverage';
 import { createDefaultBusinessIdeaBrief } from '@/lib/business-idea/schema';
 import { BusinessIdeaSessionStore } from '@/lib/business-idea/store';
 
+function buildBusinessIdeaWelcomeMessage(args: {
+  businessName?: string;
+  ideaName?: string;
+}): string {
+  const greeting = args.businessName ? `Hello, ${args.businessName}!` : 'Hello!';
+  const ideaReference = args.ideaName ? ` for “${args.ideaName}”` : '';
+
+  return [
+    `${greeting} I’ll help clarify your business, the opportunity behind your idea${ideaReference}, and the project it should become.`,
+    'I’ll start from what you shared, invite corrections where needed, and ask one focused question at a time.',
+    'What does your business currently offer customers today?',
+  ].join('\n\n');
+}
+
 export async function POST(request: NextRequest) {
   if (!process.env.OPENROUTER_API_KEY?.trim()) {
     return NextResponse.json(
@@ -40,7 +54,6 @@ export async function POST(request: NextRequest) {
   } else if (initialContext && initialContext.trim().length > 0) {
     intakeText = initialContext;
   }
-
   if (intakeText) {
     try {
       const parsed = await parseBusinessIdeaIntake(intakeText);
@@ -57,19 +70,37 @@ export async function POST(request: NextRequest) {
   const sessionId = randomUUID();
   const shareableUrl = `/business-idea/session/${sessionId}`;
   const coverage = computeBusinessIdeaCoverage(brief);
-  const hasContent = coverage.businessContext > 0 || coverage.ideaOpportunity > 0 || coverage.projectDefinition > 0;
 
-  let initialChatHistory: Array<{ role: string; content: string }> = [];
-  if (hasContent) {
-    const assistantMessage = await generateBusinessIdeaInitialMessage({
-      businessName: businessName?.trim() || undefined,
-      ideaName: ideaName?.trim() || undefined,
-      brief,
-      coverage,
-    });
-    if (assistantMessage) {
-      initialChatHistory = [{ role: 'assistant', content: assistantMessage }];
+  const normalizedIntakeText = intakeText?.trim() || '';
+  const hasContent = coverage.businessContext > 0 || coverage.ideaOpportunity > 0 || coverage.projectDefinition > 0;
+  const shouldSeedConversation = normalizedIntakeText.length > 0 || hasContent;
+
+  const initialChatHistory: Array<{ role: string; content: string }> = [];
+  if (shouldSeedConversation) {
+    let assistantMessage = '';
+    try {
+      assistantMessage = await generateBusinessIdeaInitialMessage({
+        businessName: businessName?.trim() || undefined,
+        ideaName: ideaName?.trim() || undefined,
+        initialContext: normalizedIntakeText || undefined,
+        brief,
+        coverage,
+      });
+    } catch {
+      // A deterministic welcome keeps the seeded conversation usable when inference is unavailable.
     }
+
+    if (!assistantMessage.trim()) {
+      assistantMessage = buildBusinessIdeaWelcomeMessage({
+        businessName: businessName?.trim() || undefined,
+        ideaName: ideaName?.trim() || undefined,
+      });
+    }
+
+    if (normalizedIntakeText) {
+      initialChatHistory.push({ role: 'user', content: normalizedIntakeText });
+    }
+    initialChatHistory.push({ role: 'assistant', content: assistantMessage });
   }
 
   const store = new BusinessIdeaSessionStore();

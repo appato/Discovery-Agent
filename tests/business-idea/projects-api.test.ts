@@ -79,6 +79,19 @@ describe('POST /api/business-ideas', () => {
     expect(body.initialState.coverage.businessContext).toBeGreaterThan(0);
     const stored = await new BusinessIdeaSessionStore().getSession(body.sessionId);
     expect(stored.sessionId).toBe(body.sessionId);
+    expect(stored.chatHistory).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'We run a local florist shop.',
+      }),
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Tell me more about the business.',
+      }),
+    ]);
+    expect(mockInitial).toHaveBeenCalledWith(expect.objectContaining({
+      initialContext: 'We run a local florist shop.',
+    }));
   });
 
   it('gives context_doc precedence over initial_context', async () => {
@@ -108,6 +121,41 @@ describe('POST /api/business-ideas', () => {
       ideaOpportunity: 0,
       projectDefinition: 0,
     });
+    const stored = await new BusinessIdeaSessionStore().getSession(body.sessionId);
+    expect(stored.chatHistory).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'A rough business idea',
+      }),
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Tell me more about the business.',
+      }),
+    ]);
+  });
+
+  it('keeps the intake session usable with a deterministic welcome when initial inference fails', async () => {
+    mockParse.mockResolvedValue({});
+    mockInitial.mockRejectedValue(new Error('initial message failure'));
+    const formData = new FormData();
+    formData.append('business_name', 'Petal & Stem');
+    formData.append('initial_context', 'We sell flowers to local wedding couples.');
+
+    const response = await postBusinessIdea(formData);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    const stored = await new BusinessIdeaSessionStore().getSession(body.sessionId);
+
+    expect(stored.chatHistory).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'We sell flowers to local wedding couples.',
+      }),
+      expect.objectContaining({
+        role: 'assistant',
+        content: expect.stringContaining('Hello, Petal & Stem!'),
+      }),
+    ]);
   });
 
   it('returns the configuration error before attempting provider work', async () => {
