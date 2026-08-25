@@ -5,9 +5,6 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     exclude: ['**/.next/**', '**/node_modules/**'],
-    env: {
-      STORAGE_BACKEND: 'file',
-    },
     setupFiles: ['./tests/setup.ts'],
   },
   resolve: {

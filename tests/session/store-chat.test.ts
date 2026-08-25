@@ -1,24 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+import { describe, it, expect } from 'vitest';
 import { SessionStore } from '../../lib/session/store';
 
-const TEST_SESSIONS_DIR = path.join(process.cwd(), 'test-sessions-store-chat');
+
+
 
 describe('SessionStore chat support', () => {
-  beforeEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    process.env.SESSIONS_DIR = TEST_SESSIONS_DIR;
-  });
 
-  afterEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    delete process.env.SESSIONS_DIR;
-  });
 
   it('getSession returns a previously created session', async () => {
     const store = new SessionStore();

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+import { BusinessIdeaSessionStore } from '@/lib/business-idea/store';
+
 
 const { mockParse, mockInitial } = vi.hoisted(() => ({
   mockParse: vi.fn(),
@@ -27,7 +27,6 @@ vi.mock('@/lib/business-idea/llm', () => ({
   generateBusinessIdeaInitialMessage: mockInitial,
 }));
 
-const TEST_SESSIONS_DIR = path.join(process.cwd(), 'test-sessions-business-projects');
 
 async function postBusinessIdea(formData: FormData) {
   const { NextRequest } = await import('next/server');
@@ -40,18 +39,12 @@ async function postBusinessIdea(formData: FormData) {
 
 describe('POST /api/business-ideas', () => {
   beforeEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    process.env.SESSIONS_DIR = TEST_SESSIONS_DIR;
-    process.env.STORAGE_BACKEND = 'file';
     process.env.OPENROUTER_API_KEY = 'test-key';
     mockParse.mockResolvedValue({});
     mockInitial.mockResolvedValue('Tell me more about the business.');
   });
 
   afterEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    delete process.env.SESSIONS_DIR;
-    delete process.env.STORAGE_BACKEND;
     delete process.env.OPENROUTER_API_KEY;
     vi.clearAllMocks();
   });
@@ -84,7 +77,8 @@ describe('POST /api/business-ideas', () => {
     });
     expect(body.initialState.businessIdeaBrief.business_context.industry).toBe('Floristry');
     expect(body.initialState.coverage.businessContext).toBeGreaterThan(0);
-    expect(fs.existsSync(path.join(TEST_SESSIONS_DIR, `${body.sessionId}.json`))).toBe(true);
+    const stored = await new BusinessIdeaSessionStore().getSession(body.sessionId);
+    expect(stored.sessionId).toBe(body.sessionId);
   });
 
   it('gives context_doc precedence over initial_context', async () => {

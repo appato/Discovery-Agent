@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { businessIdeaSessionSchema, createDefaultBusinessIdeaBrief, type BusinessIdeaBrief, type BusinessIdeaSession } from './schema';
 import { computeBusinessIdeaCoverage } from './coverage';
-import { type StorageBackend, FileSessionBackend } from '@/lib/session/backend';
+import { type StorageBackend } from '@/lib/session/backend';
 import { SupabaseSessionBackend } from '@/lib/session/supabase-backend';
 import { type SessionRow } from '@/lib/supabase/client';
 
@@ -55,22 +55,15 @@ export function rowToBusinessIdeaSession(row: SessionRow): BusinessIdeaSession {
   });
 }
 
-function createBusinessIdeaBackend(dir: string): StorageBackend<BusinessIdeaSession> {
-  switch (process.env.STORAGE_BACKEND || 'file') {
-    case 'file':
-      return new FileSessionBackend(dir, businessIdeaSessionSchema);
-    case 'supabase':
-      return new SupabaseSessionBackend(businessIdeaSessionToRow, rowToBusinessIdeaSession);
-    default:
-      throw new Error(`Unknown STORAGE_BACKEND: ${process.env.STORAGE_BACKEND}`);
-  }
+function createBusinessIdeaBackend(): StorageBackend<BusinessIdeaSession> {
+  return new SupabaseSessionBackend(businessIdeaSessionToRow, rowToBusinessIdeaSession);
 }
 
 export class BusinessIdeaSessionStore {
   private backend: StorageBackend<BusinessIdeaSession>;
 
-  constructor(private dir: string = process.env.SESSIONS_DIR || 'sessions') {
-    this.backend = createBusinessIdeaBackend(this.dir);
+  constructor() {
+    this.backend = createBusinessIdeaBackend();
   }
 
   async createSession(): Promise<BusinessIdeaSession> {

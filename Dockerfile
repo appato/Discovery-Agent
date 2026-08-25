@@ -32,14 +32,11 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV SESSIONS_DIR=/app/sessions
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs && \
     apk add --no-cache su-exec cairo pango pixman
 
-RUN mkdir -p /app/sessions /app/.next/cache && \
-    chown -R nextjs:nodejs /app/sessions /app/.next/cache
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./

@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+
 
 const { mockUpload } = vi.hoisted(() => ({
   mockUpload: vi.fn(),
@@ -15,10 +14,9 @@ vi.mock('@/lib/supabase/client', () => ({
     },
   }),
 }));
+import { SupabaseImageStorage, createImageStorage } from '@/lib/storage/image-storage';
 
-import { FileImageStorage, SupabaseImageStorage, createImageStorage, type ImageMetadata } from '@/lib/storage/image-storage';
 
-const TEST_UPLOADS_DIR = path.join(process.cwd(), 'test-uploads-image-storage');
 
 function createMinimalPng(): Buffer {
   return Buffer.from([
@@ -35,77 +33,11 @@ function createMinimalPng(): Buffer {
   ]);
 }
 
-describe('FileImageStorage', () => {
-  beforeEach(() => {
-    if (fs.existsSync(TEST_UPLOADS_DIR)) fs.rmSync(TEST_UPLOADS_DIR, { recursive: true });
-    process.env.UPLOADS_DIR = TEST_UPLOADS_DIR;
-  });
 
-  afterEach(() => {
-    if (fs.existsSync(TEST_UPLOADS_DIR)) fs.rmSync(TEST_UPLOADS_DIR, { recursive: true });
-    delete process.env.UPLOADS_DIR;
-  });
-
-  it('stores image on disk and returns metadata with correct shape', async () => {
-    const storage = new FileImageStorage();
-    const buffer = createMinimalPng();
-    const sessionId = 'test-session-1';
-    const filename = 'reference.png';
-    const mimeType = 'image/png';
-
-    const metadata = await storage.storeImage(buffer, sessionId, filename, mimeType);
-
-    expect(metadata).toHaveProperty('id');
-    expect(metadata).toHaveProperty('originalName');
-    expect(metadata).toHaveProperty('storedPath');
-    expect(metadata).toHaveProperty('mimeType');
-    expect(metadata).toHaveProperty('uploadedAt');
-
-    expect(metadata.id).toMatch(/^img-/);
-    expect(metadata.originalName).toBe(filename);
-    expect(metadata.mimeType).toBe(mimeType);
-    expect(metadata.storedPath).toBe(`uploads/${sessionId}/${filename}`);
-    expect(new Date(metadata.uploadedAt).toISOString()).toBe(metadata.uploadedAt);
-
-    const filePath = path.join(TEST_UPLOADS_DIR, sessionId, filename);
-    expect(fs.existsSync(filePath)).toBe(true);
-    const writtenBuffer = fs.readFileSync(filePath);
-    expect(Buffer.compare(writtenBuffer, buffer)).toBe(0);
-  });
-
-  it('handles multiple images for the same session', async () => {
-    const storage = new FileImageStorage();
-    const sessionId = 'test-session-2';
-
-    const meta1 = await storage.storeImage(createMinimalPng(), sessionId, 'img1.png', 'image/png');
-    const meta2 = await storage.storeImage(createMinimalPng(), sessionId, 'img2.png', 'image/png');
-
-    expect(meta1.storedPath).not.toBe(meta2.storedPath);
-    expect(meta1.id).not.toBe(meta2.id);
-
-    expect(fs.existsSync(path.join(TEST_UPLOADS_DIR, sessionId, 'img1.png'))).toBe(true);
-    expect(fs.existsSync(path.join(TEST_UPLOADS_DIR, sessionId, 'img2.png'))).toBe(true);
-  });
-});
 
 describe('createImageStorage', () => {
-  beforeEach(() => {
-    delete process.env.STORAGE_BACKEND;
-  });
-
-  afterEach(() => {
-    delete process.env.STORAGE_BACKEND;
-  });
-
-  it('returns FileImageStorage when STORAGE_BACKEND is file', () => {
-    process.env.STORAGE_BACKEND = 'file';
-    const storage = createImageStorage();
-    expect(storage).toBeInstanceOf(FileImageStorage);
-  });
-
-  it('returns FileImageStorage when STORAGE_BACKEND is not set', () => {
-    const storage = createImageStorage();
-    expect(storage).toBeInstanceOf(FileImageStorage);
+  it('always uses Supabase Storage', () => {
+    expect(createImageStorage()).toBeInstanceOf(SupabaseImageStorage);
   });
 });
 

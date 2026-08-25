@@ -1,9 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { SessionStore } from '@/lib/session/store';
 
-const TEST_SESSIONS_DIR = path.join(process.cwd(), 'test-sessions-chat-website');
+
 
 vi.mock('@/lib/llm/chat', () => ({
   generateChatResponse: vi.fn(),
@@ -85,18 +83,8 @@ async function callPostChat(sessionId: string, message: string) {
 }
 
 describe('POST /api/session/[id]/chat with website links', () => {
-  beforeEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    process.env.SESSIONS_DIR = TEST_SESSIONS_DIR;
-  });
 
   afterEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    delete process.env.SESSIONS_DIR;
     vi.clearAllMocks();
   });
 

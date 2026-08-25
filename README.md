@@ -31,7 +31,7 @@ Normal Business Idea Brief completion requires at least 70% coverage in all thre
 - Shared conversational UI with agent-specific coverage, review, approval, and download copy
 - Product Discovery Agent backed by DigitalOcean inference
 - Business Idea Agent backed by OpenRouter model `openai/gpt-5.6-sol`
-- File-based or Supabase session persistence using the existing `sessions` table and JSONB artifact columns
+- Supabase persistence for session rows and uploaded images, using the `sessions` table and `client-uploads` bucket
 - Staff pre-seeding APIs for both product and business intake
 - Link-based access — clients and business owners do not authenticate; the session URL is the credential
 
@@ -41,8 +41,8 @@ Normal Business Idea Brief completion requires at least 70% coverage in all thre
 |-------|-----------|
 | Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS |
 | AI / LLM | Vercel AI SDK; DigitalOcean `deepseek-v4-pro` for product discovery; OpenRouter `openai/gpt-5.6-sol` for business ideas |
-| Persistence | Flat JSON files (`sessions/`) or Supabase |
-| Deployment | Docker (self-hosted) with a mounted volume |
+| Persistence | Supabase Postgres JSONB rows and Supabase Storage |
+| Deployment | Vercel or Docker with Supabase |
 | Testing | Vitest, Testing Library, jsdom |
 
 ## Getting Started
@@ -62,12 +62,12 @@ DIGITALOCEAN_TOKEN=doo_v1_...
 OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
-Optional overrides:
+Supabase is required for session and image persistence:
 
 ```bash
-SESSIONS_DIR=sessions       # default: sessions
-UPLOADS_DIR=uploads         # default: uploads
-STORAGE_BACKEND=file        # file or supabase
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_STORAGE_BUCKET=client-uploads
 ```
 
 ### Development
@@ -85,7 +85,7 @@ Open [http://localhost:3000](http://localhost:3000). The root page presents both
 docker compose up --build
 ```
 
-Maps `sessions/` as a volume so both product and business sessions persist across container restarts. The service listens on port 3000.
+The container is stateless; configure the Supabase environment variables above rather than mounting a local data volume. The service listens on port 3000.
 
 ## Project Structure
 
@@ -104,8 +104,7 @@ components/
 lib/
   business-idea/                   # Business schema, coverage, LLM, export, storage
   llm/                             # DigitalOcean product orchestration and providers
-  session/                         # Shared storage and chat-turn preparation
-sessions/                           # Session JSON files (volume-mounted in Docker)
+  session/                         # Supabase-backed session state and chat-turn preparation
 tests/                              # Vitest test suite
 ```
 

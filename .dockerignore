@@ -6,6 +6,8 @@ README.md
 .next
 .git
 .scratch
+sessions
+uploads
 test-sessions
 *.test.ts
 *.test.tsx

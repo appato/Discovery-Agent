@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import fs from 'fs';
-import path from 'path';
 import { BusinessIdeaSessionStore } from '@/lib/business-idea/store';
 import { createDefaultBusinessIdeaBrief } from '@/lib/business-idea/schema';
+
+
 
 const { mockChatResponse, mockFallback } = vi.hoisted(() => ({
   mockChatResponse: vi.fn(),
@@ -14,7 +14,6 @@ vi.mock('@/lib/business-idea/llm', () => ({
   generateBusinessIdeaFallbackResponse: mockFallback,
 }));
 
-const TEST_SESSIONS_DIR = path.join(process.cwd(), 'test-sessions-business-chat');
 
 function makeOutput(overrides: Record<string, unknown> = {}) {
   const brief = createDefaultBusinessIdeaBrief();
@@ -56,9 +55,6 @@ async function readNdjson(response: Response): Promise<Array<Record<string, unkn
 
 describe('POST /api/business-ideas/session/[id]/chat', () => {
   beforeEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    process.env.SESSIONS_DIR = TEST_SESSIONS_DIR;
-    process.env.STORAGE_BACKEND = 'file';
     process.env.OPENROUTER_API_KEY = 'test-key';
     mockChatResponse.mockResolvedValue({
       partialObjectStream: (async function* () {
@@ -70,9 +66,6 @@ describe('POST /api/business-ideas/session/[id]/chat', () => {
   });
 
   afterEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    delete process.env.SESSIONS_DIR;
-    delete process.env.STORAGE_BACKEND;
     delete process.env.OPENROUTER_API_KEY;
     vi.clearAllMocks();
   });

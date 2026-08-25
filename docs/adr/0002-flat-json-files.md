@@ -2,26 +2,29 @@
 
 ## Status
 
-Accepted
+Superseded
 
 ## Context
 
-The structured state of each session is a deeply nested JSON object (the discovery brief and turn history). The PRD does not require complex querying or multi-user concurrency for the MVP. The user also expressed a future intention to migrate to Supabase for multi-project separation.
+The initial MVP used flat JSON files because the session state is deeply nested and did not require complex querying. Deployment now targets stateless runtimes such as Vercel, where local writes are unavailable and ephemeral.
 
 ## Decision
 
-We will persist sessions as **flat JSON files** on the local filesystem (`sessions/{sessionId}.json`). The Next.js API routes will read and write these files directly. This is the absolute minimal persistence layer for the MVP.
+This file-based persistence decision is superseded. The application stores every session row in the Supabase `sessions` table, with nested artifacts in JSONB columns. Uploaded image objects are stored in the Supabase `client-uploads` bucket.
+
+Session stores and image storage have no local-filesystem fallback or backend selector. A one-time migration utility remains available to import legacy `sessions/*.json` files into Supabase; it is not part of the application request path.
 
 ## Consequences
 
-- **Simplicity**: No database setup, no ORM, no schema migrations.
-- **Inspectability**: Developers can read and edit session state directly in the file system.
-- **Limited concurrency**: Simultaneous writes to the same file could corrupt state. For the single-user MVP, this is acceptable.
-- **Migration path**: A flat JSON structure is trivially portable to a document store (e.g., Supabase Postgres with a JSONB column) or any other database later. The file format serves as the canonical schema.
+- **Stateless deployment**: Vercel functions can create and update sessions without a writable working directory.
+- **Shared persistence**: Product and business sessions use the same Supabase table and retain their schema-specific JSONB artifacts.
+- **Operational requirement**: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and the Supabase migrations are required before serving traffic.
+- **Migration**: Existing JSON files must be imported once with the migration utility and can then be removed from deployment artifacts.
 
 ## Alternatives considered
 
-- **SQLite with JSONB**: More robust for concurrent writes and metadata indexing, but adds unnecessary complexity for the MVP.
+- **Local JSON files**: Rejected because Vercel's filesystem is read-only or ephemeral.
+- **SQLite with JSONB**: Rejected because it still requires local or attached volume persistence.
 
 ## Related
 

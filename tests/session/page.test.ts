@@ -1,23 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+import { describe, it, expect } from 'vitest';
 
-const TEST_SESSIONS_DIR = path.join(process.cwd(), 'test-sessions-page');
+
 
 describe('/session page', () => {
-  beforeEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    process.env.SESSIONS_DIR = TEST_SESSIONS_DIR;
-  });
 
-  afterEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    delete process.env.SESSIONS_DIR;
-  });
 
   it('redirects to /session/{id} when visited', async () => {
     const { default: SessionPage } = await import('../../app/session/page');

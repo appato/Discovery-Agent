@@ -1,9 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+import { describe, it, expect } from 'vitest';
 import { GET } from '../../app/api/session/route';
+import { SessionStore } from '../../lib/session/store';
 
-const TEST_SESSIONS_DIR = path.join(process.cwd(), 'test-sessions-api');
+
 
 async function callGetSession() {
   const request = new Request('http://localhost:3000/api/session');
@@ -11,21 +10,9 @@ async function callGetSession() {
 }
 
 describe('GET /api/session', () => {
-  beforeEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    process.env.SESSIONS_DIR = TEST_SESSIONS_DIR;
-  });
 
-  afterEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    delete process.env.SESSIONS_DIR;
-  });
 
-  it('creates a session file on disk and returns session id', async () => {
+  it('creates a session in Supabase and returns its id', async () => {
     const response = await callGetSession();
     expect(response.status).toBe(200);
 
@@ -34,16 +21,14 @@ describe('GET /api/session', () => {
     expect(typeof body.sessionId).toBe('string');
     expect(body.sessionId.length).toBeGreaterThan(0);
 
-    const filePath = path.join(TEST_SESSIONS_DIR, `${body.sessionId}.json`);
-    expect(fs.existsSync(filePath)).toBe(true);
+    const stored = await new SessionStore().getSession(body.sessionId);
+    expect(stored.sessionId).toBe(body.sessionId);
   });
 
-  it('created file matches PRD schema exactly with empty defaults', async () => {
+  it('stores a session with the expected empty defaults', async () => {
     const response = await callGetSession();
     const body = await response.json();
-    const filePath = path.join(TEST_SESSIONS_DIR, `${body.sessionId}.json`);
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
-    const session = JSON.parse(fileContent);
+    const session = await new SessionStore().getSession(body.sessionId);
 
     // Top-level metadata fields
     expect(session).toHaveProperty('sessionId');

@@ -52,11 +52,11 @@ The system will not:
 
 - **Frontend:** Next.js 14+ (App Router), TypeScript.
 - **AI Orchestration:** Vercel AI SDK with OpenAI GPT-4o via `streamObject` and a Zod schema.
-- **Persistence:** Flat JSON files (`sessions/{sessionId}.json`) on the local filesystem; no database for MVP.
-- **Deployment:** Self-hosted Docker container with a mounted volume.
+- **Persistence:** Supabase Postgres `sessions` table with JSONB columns; no application data is written to the local filesystem.
+- **Deployment:** Vercel or another stateless runtime backed by Supabase.
 - **Speech-to-Text:** Browser native Web Speech API.
 - **File Parsing:** Plain text, Markdown, and PDF (server-side synchronous extraction).
-- **Image Storage:** Uploaded images stored in `uploads/` directory. Base64-encoded and sent to GPT-4o as image parts.
+- **Image Storage:** Uploaded images are stored in the Supabase `client-uploads` bucket. Base64-encoded and sent to the LLM as image parts.
 - **Website Fetching:** Simple HTTP fetch for text extraction (title, meta description, visible text). No screenshots for MVP. Links are detected and fetched by the backend before the LLM call, not via tool calling.
 
 ## Product scope
@@ -402,9 +402,9 @@ Rules:
 
 **Traceability:** Every extracted value is stored as an object with `value` and `citations` (an array of citation IDs referencing the chat history). The chat history is stored separately, allowing staff to trace any structured field back to the raw client statement that produced it.
 
-### Session state file
+### Session state
 
-Each session is persisted as a flat JSON file (`sessions/{sessionId}.json`):
+Each session is persisted as a row in the Supabase `sessions` table. The JSON representation below describes the row's fields; it is not written to the local filesystem:
 
 ```json
 {
@@ -447,7 +447,7 @@ Each session is persisted as a flat JSON file (`sessions/{sessionId}.json`):
     {
       "id": "img-1",
       "originalName": "reference.png",
-      "storedPath": "uploads/{sessionId}/reference.png",
+      "storedPath": "client-uploads/{sessionId}/reference.png",
       "mimeType": "image/png",
       "uploadedAt": "2026-06-13T10:00:00Z"
     }

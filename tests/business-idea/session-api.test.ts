@@ -1,9 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+import { describe, expect, it } from 'vitest';
 import { BusinessIdeaSessionStore } from '@/lib/business-idea/store';
 
-const TEST_SESSIONS_DIR = path.join(process.cwd(), 'test-sessions-business-session-api');
+
+
 
 async function getSession(sessionId: string) {
   const { GET } = await import('@/app/api/business-ideas/session/[id]/route');
@@ -30,17 +29,7 @@ async function getBrief(sessionId: string) {
 }
 
 describe('Business Idea session APIs', () => {
-  beforeEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    process.env.SESSIONS_DIR = TEST_SESSIONS_DIR;
-    process.env.STORAGE_BACKEND = 'file';
-  });
 
-  afterEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    delete process.env.SESSIONS_DIR;
-    delete process.env.STORAGE_BACKEND;
-  });
 
   it('returns businessIdeaBrief from GET and approves only a brief-ready session', async () => {
     const store = new BusinessIdeaSessionStore();

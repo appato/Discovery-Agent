@@ -1,26 +1,18 @@
 import { randomUUID } from 'crypto';
 import { sessionSchema, createDefaultStructuredBrief, type Session, type StructuredBrief } from './schema';
 import { computeCoverage } from '../coverage';
-import { type StorageBackend, FileSessionBackend } from './backend';
+import { type StorageBackend } from './backend';
 import { SupabaseSessionBackend, rowToSession, sessionToRow } from './supabase-backend';
 
-function createBackend(dir: string): StorageBackend<Session> {
-  const backend = process.env.STORAGE_BACKEND || 'file';
-  switch (backend) {
-    case 'file':
-      return new FileSessionBackend(dir, sessionSchema);
-    case 'supabase':
-      return new SupabaseSessionBackend(sessionToRow, rowToSession);
-    default:
-      throw new Error(`Unknown STORAGE_BACKEND: ${backend}`);
-  }
+function createBackend(): StorageBackend<Session> {
+  return new SupabaseSessionBackend(sessionToRow, rowToSession);
 }
 
 export class SessionStore {
   private backend: StorageBackend<Session>;
 
-  constructor(private dir: string = process.env.SESSIONS_DIR || 'sessions') {
-    this.backend = createBackend(this.dir);
+  constructor() {
+    this.backend = createBackend();
   }
 
   async createSession(): Promise<Session> {

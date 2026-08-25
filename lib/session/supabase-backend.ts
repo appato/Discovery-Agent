@@ -61,7 +61,7 @@ export class SupabaseSessionBackend<T extends SessionIdentity> implements Storag
   async createSession(session: T): Promise<void> {
     const client = getSupabaseClient();
     const row = this.toRow(session);
-    // @ts-ignore
+    // @ts-expect-error Supabase schema types are not generated in this project.
     const { error } = await client.from('sessions').insert(row);
     if (error) throw new Error(`Failed to create session: ${error.message}`);
   }
@@ -82,7 +82,7 @@ export class SupabaseSessionBackend<T extends SessionIdentity> implements Storag
   async updateSession(session: T): Promise<void> {
     const client = getSupabaseClient();
     const row = this.toRow(session);
-    // @ts-ignore
+    // @ts-expect-error Supabase schema types are not generated in this project.
     const query = client.from('sessions').update(row).eq('id', session.sessionId);
     const { error } = await query;
     if (error) throw new Error(`Failed to update session: ${error.message}`);

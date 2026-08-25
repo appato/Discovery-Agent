@@ -1,8 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { SessionStore } from '@/lib/session/store';
 
-const TEST_SESSIONS_DIR = path.join(process.cwd(), 'test-sessions-projects-api');
+
 
 vi.mock('@/lib/llm/parse', () => ({
   parseIntakeText: vi.fn(),
@@ -20,18 +19,8 @@ async function callPostProjects(formData?: FormData) {
 }
 
 describe('POST /api/projects', () => {
-  beforeEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    process.env.SESSIONS_DIR = TEST_SESSIONS_DIR;
-  });
 
   afterEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    delete process.env.SESSIONS_DIR;
     vi.clearAllMocks();
   });
 
@@ -49,9 +38,7 @@ describe('POST /api/projects', () => {
       projectName: 'Mobile Redesign',
     });
 
-    // Verify persisted to disk
-    const filePath = path.join(TEST_SESSIONS_DIR, `${body.sessionId}.json`);
-    const session = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const session = await new SessionStore().getSession(body.sessionId);
     expect(session.metadata).toEqual({
       clientName: 'Acme Corp',
       projectName: 'Mobile Redesign',
@@ -154,15 +141,14 @@ describe('POST /api/projects', () => {
     expect(body.initialState.metadata.clientName).toBe('');
   });
 
-  it('persists shareableUrl in the session file on disk', async () => {
+  it('persists shareableUrl in Supabase', async () => {
     const formData = new FormData();
     formData.append('client_name', 'Acme Corp');
 
     const response = await callPostProjects(formData);
     const body = await response.json();
 
-    const filePath = path.join(TEST_SESSIONS_DIR, `${body.sessionId}.json`);
-    const session = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const session = await new SessionStore().getSession(body.sessionId);
     expect(session.shareableUrl).toBe(`/session/${body.sessionId}`);
     expect(session.shareableUrl).toBe(body.shareableUrl);
   });
@@ -219,8 +205,7 @@ describe('POST /api/projects', () => {
     });
     expect(state.structuredBrief.approval_status).toBe('draft');
 
-    // Verify session file exists on disk
-    const filePath = path.join(TEST_SESSIONS_DIR, `${body.sessionId}.json`);
-    expect(fs.existsSync(filePath)).toBe(true);
+    const stored = await new SessionStore().getSession(body.sessionId);
+    expect(stored.sessionId).toBe(body.sessionId);
   });
 });

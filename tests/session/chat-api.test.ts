@@ -1,10 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { SessionStore } from '@/lib/session/store';
 import { generateChatResponse, generateFallbackResponse } from '@/lib/llm/chat';
 
-const TEST_SESSIONS_DIR = path.join(process.cwd(), 'test-sessions-chat-api');
 
 vi.mock('@/lib/llm/chat', () => ({
   generateChatResponse: vi.fn(),
@@ -74,22 +71,12 @@ async function readStreamBody(response: Response): Promise<string[]> {
 }
 
 describe('POST /api/session/[id]/chat', () => {
-  beforeEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    process.env.SESSIONS_DIR = TEST_SESSIONS_DIR;
-  });
 
   afterEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    delete process.env.SESSIONS_DIR;
     vi.clearAllMocks();
   });
 
-  it('streams NDJSON response and updates session file', async () => {
+  it('streams NDJSON response and updates the Supabase session', async () => {
     const mockCoverage = { product_context: 0.1, functional: 0.0, aesthetics: 0.0 };
     vi.mocked(generateChatResponse).mockResolvedValue(
       makeMockStreamResult('What problem does your product solve?', {

@@ -7,13 +7,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    volumes:
-      - ./sessions:/app/sessions
     environment:
       - NODE_ENV=production
-      - SESSIONS_DIR=/app/sessions
-      # Supabase backend (uncomment and set these when using STORAGE_BACKEND=supabase)
-      - STORAGE_BACKEND=supabase
-      - SUPABASE_URL=https://yevtdkyyqorpcfezxrso.supabase.co
-      - SUPABASE_PUBLISHABLE_KEY=sb_publishable_YB-1oYihhDnycdM42NIARw_hVme0xz0
-      - SUPABASE_STORAGE_BUCKET=client-uploads
+      - DIGITALOCEAN_TOKEN=${DIGITALOCEAN_TOKEN:?DIGITALOCEAN_TOKEN is required}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}
+      - SUPABASE_URL=${SUPABASE_URL:?SUPABASE_URL is required}
+      - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:?SUPABASE_PUBLISHABLE_KEY is required}
+      - SUPABASE_STORAGE_BUCKET=${SUPABASE_STORAGE_BUCKET:-client-uploads}

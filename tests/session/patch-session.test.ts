@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+import { describe, it, expect } from 'vitest';
 import { SessionStore } from '@/lib/session/store';
 import { createDefaultStructuredBrief } from '@/lib/session/schema';
 
-const TEST_SESSIONS_DIR = path.join(process.cwd(), 'test-sessions-patch');
+
+
 
 async function callPatchSession(sessionId: string, body: { action: string }) {
   const { PATCH } = await import('@/app/api/session/[id]/route');
@@ -18,19 +17,7 @@ async function callPatchSession(sessionId: string, body: { action: string }) {
 }
 
 describe('PATCH /api/session/[id]', () => {
-  beforeEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    process.env.SESSIONS_DIR = TEST_SESSIONS_DIR;
-  });
 
-  afterEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) {
-      fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    }
-    delete process.env.SESSIONS_DIR;
-  });
 
   it('approve: transitions session status to approved and sets brief approval_status to approved', async () => {
     const store = new SessionStore();

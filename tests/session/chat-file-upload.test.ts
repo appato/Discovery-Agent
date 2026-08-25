@@ -1,16 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { SessionStore } from '@/lib/session/store';
 import { generateChatResponse } from '@/lib/llm/chat';
-
-const TEST_SESSIONS_DIR = path.join(process.cwd(), 'test-sessions-chat-file-upload');
-const TEST_UPLOADS_DIR = path.join(process.cwd(), 'test-uploads-file-upload');
 
 vi.mock('@/lib/llm/chat', () => ({
   generateChatResponse: vi.fn(),
   generateFallbackResponse: vi.fn(),
 }));
+
+
 
 function makeMockStreamResult(
   message: string,
@@ -86,18 +83,8 @@ async function callPostChatWithFile(
 }
 
 describe('POST /api/session/[id]/chat - file uploads', () => {
-  beforeEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    if (fs.existsSync(TEST_UPLOADS_DIR)) fs.rmSync(TEST_UPLOADS_DIR, { recursive: true });
-    process.env.SESSIONS_DIR = TEST_SESSIONS_DIR;
-    process.env.UPLOADS_DIR = TEST_UPLOADS_DIR;
-  });
 
   afterEach(() => {
-    if (fs.existsSync(TEST_SESSIONS_DIR)) fs.rmSync(TEST_SESSIONS_DIR, { recursive: true });
-    if (fs.existsSync(TEST_UPLOADS_DIR)) fs.rmSync(TEST_UPLOADS_DIR, { recursive: true });
-    delete process.env.SESSIONS_DIR;
-    delete process.env.UPLOADS_DIR;
     vi.clearAllMocks();
   });
 
@@ -150,7 +137,7 @@ describe('POST /api/session/[id]/chat - file uploads', () => {
     expect(updatedSession.chatHistory[0].content).toContain('Fitness App Requirements');
   });
 
-  it('stores uploaded image on disk and sends it to LLM as vision input', async () => {
+  it('stores uploaded image in Supabase Storage and sends it to LLM as vision input', async () => {
     vi.mocked(generateChatResponse).mockResolvedValue(
       makeMockStreamResult('I can see the reference image you uploaded. What style aspects do you like about it?', {
         coverage: { product_context: 0.0, functional: 0.0, aesthetics: 0.1 },
@@ -170,17 +157,14 @@ describe('POST /api/session/[id]/chat - file uploads', () => {
     const body = await readStreamLastObject(response);
     expect(body.message).toContain('reference image');
 
-    // Verify image stored on disk
-    const imagePath = path.join(TEST_UPLOADS_DIR, session.sessionId, 'reference.png');
-    expect(fs.existsSync(imagePath)).toBe(true);
 
-    // Verify session file updated with image metadata
+    // Verify the Supabase session contains image metadata
     const updatedSession = await store.getSession(session.sessionId);
     expect(updatedSession.uploadedImages).toHaveLength(1);
     const img = updatedSession.uploadedImages[0];
     expect(img.originalName).toBe('reference.png');
     expect(img.mimeType).toBe('image/png');
-    expect(img.storedPath).toBe(`uploads/${session.sessionId}/reference.png`);
+    expect(img.storedPath).toBe(`${session.sessionId}/reference.png`);
     expect(typeof img.id).toBe('string');
 
     // Verify chat history reflects upload

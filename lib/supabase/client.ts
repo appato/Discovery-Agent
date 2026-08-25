@@ -31,7 +31,7 @@ export function getSupabaseClient() {
     const key = process.env.SUPABASE_PUBLISHABLE_KEY;
     if (!url || !key) {
       throw new Error(
-        'SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be set when STORAGE_BACKEND=supabase',
+        'SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be set for Supabase persistence',
       );
     }
     supabaseClient = createClient(url, key);
