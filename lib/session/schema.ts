@@ -56,8 +56,8 @@ export const sessionSchema = z.object({
   sessionId: z.string(),
   projectId: z.string(),
   status: z.enum(['in_discovery', 'brief_ready', 'approved']),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: z.string().datetime({ offset: true }),
+  updatedAt: z.string().datetime({ offset: true }),
   shareableUrl: z.string(),
   metadata: z.object({
     clientName: z.string(),
@@ -85,7 +85,7 @@ export const sessionSchema = z.object({
     metaDescription: z.string(),
     extractedText: z.string(),
     turnNumber: z.number(),
-    fetchedAt: z.string().datetime(),
+    fetchedAt: z.string().datetime({ offset: true }),
   })),
 });
 

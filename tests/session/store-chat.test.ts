@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { rowToSession, sessionToRow } from '../../lib/session/supabase-backend';
 import { SessionStore } from '../../lib/session/store';
 
 
@@ -27,7 +28,7 @@ describe('SessionStore chat support', () => {
     await expect(store.getSession('non-existent-id')).rejects.toThrow();
   });
 
-  it('updateSession persists changes to disk', async () => {
+  it('updateSession persists changes in Supabase', async () => {
     const store = new SessionStore();
     const session = await store.createSession();
 
@@ -59,5 +60,17 @@ describe('SessionStore chat support', () => {
       functional: 0.1,
       aesthetics: 0.0,
     });
+  });
+  it('loads PostgreSQL timestamptz offsets from Supabase rows', async () => {
+    const store = new SessionStore();
+    const created = await store.createSession();
+    const row = sessionToRow(created);
+    row.created_at = '2026-08-25T11:03:07.705+00:00';
+    row.updated_at = '2026-08-25T11:03:07.705+00:00';
+
+    const loaded = rowToSession(row);
+
+    expect(loaded.createdAt).toBe(row.created_at);
+    expect(loaded.updatedAt).toBe(row.updated_at);
   });
 });

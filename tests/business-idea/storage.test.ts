@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BusinessIdeaSessionStore } from '@/lib/business-idea/store';
+import { businessIdeaSessionToRow, rowToBusinessIdeaSession, BusinessIdeaSessionStore } from '@/lib/business-idea/store';
 
 
 
@@ -25,5 +25,17 @@ describe('BusinessIdeaSessionStore', () => {
     });
     expect(loaded.businessIdeaBrief.business_context.industry).toBe('Retail');
     expect(loaded.coverage.businessContext).toBe(0.17);
+  });
+  it('loads PostgreSQL timestamptz offsets from Supabase rows', async () => {
+    const store = new BusinessIdeaSessionStore();
+    const created = await store.createSession();
+    const row = businessIdeaSessionToRow(created);
+    row.created_at = '2026-08-25T11:03:07.705+00:00';
+    row.updated_at = '2026-08-25T11:03:07.705+00:00';
+
+    const loaded = rowToBusinessIdeaSession(row);
+
+    expect(loaded.createdAt).toBe(row.created_at);
+    expect(loaded.updatedAt).toBe(row.updated_at);
   });
 });
