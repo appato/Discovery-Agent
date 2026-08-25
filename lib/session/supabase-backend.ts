@@ -1,5 +1,5 @@
-import type { StorageBackend } from './backend';
-import type { Session } from './schema';
+import type { StorageBackend, SessionIdentity } from './backend';
+import { sessionSchema, type Session } from './schema';
 import { getSupabaseClient, type SessionRow } from '../supabase/client';
 
 export function sessionToRow(session: Session): SessionRow {
@@ -27,41 +27,46 @@ export function sessionToRow(session: Session): SessionRow {
   };
 }
 
-function rowToSession(row: SessionRow): Session {
-  return {
+export function rowToSession(row: SessionRow): Session {
+  return sessionSchema.parse({
     sessionId: row.id,
     projectId: row.project_id,
-    status: row.status as Session['status'],
+    status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     shareableUrl: row.shareable_url,
-    metadata: row.metadata as Session['metadata'],
-    chatHistory: row.chat_history as Session['chatHistory'],
-    structuredBrief: row.structured_brief as Session['structuredBrief'],
-    coverage: row.coverage as Session['coverage'],
-    contradictions: row.contradictions as Session['contradictions'],
-    assumptions: row.assumptions as Session['assumptions'],
-    openQuestions: row.open_questions as Session['openQuestions'],
-    recapHistory: row.recap_history as Session['recapHistory'],
+    metadata: row.metadata,
+    chatHistory: row.chat_history,
+    structuredBrief: row.structured_brief,
+    coverage: row.coverage,
+    contradictions: row.contradictions,
+    assumptions: row.assumptions,
+    openQuestions: row.open_questions,
+    recapHistory: row.recap_history,
     lastRecapTurn: row.last_recap_turn,
-    outOfScopeTopics: row.out_of_scope_topics as Session['outOfScopeTopics'],
+    outOfScopeTopics: row.out_of_scope_topics,
     llmReasoning: row.llm_reasoning,
     briefMarkdown: row.brief_markdown,
-    uploadedImages: row.uploaded_images as Session['uploadedImages'],
-    fetchedWebsites: row.fetched_websites as Session['fetchedWebsites'],
-  };
+    uploadedImages: row.uploaded_images,
+    fetchedWebsites: row.fetched_websites,
+  });
 }
 
-export class SupabaseSessionBackend implements StorageBackend {
-  async createSession(session: Session): Promise<void> {
+export class SupabaseSessionBackend<T extends SessionIdentity> implements StorageBackend<T> {
+  constructor(
+    private toRow: (session: T) => SessionRow,
+    private fromRow: (row: SessionRow) => T,
+  ) {}
+
+  async createSession(session: T): Promise<void> {
     const client = getSupabaseClient();
-    const row = sessionToRow(session);
+    const row = this.toRow(session);
     // @ts-ignore
     const { error } = await client.from('sessions').insert(row);
     if (error) throw new Error(`Failed to create session: ${error.message}`);
   }
 
-  async getSession(sessionId: string): Promise<Session> {
+  async getSession(sessionId: string): Promise<T> {
     const client = getSupabaseClient();
     const { data, error } = await client
       .from('sessions')
@@ -71,12 +76,12 @@ export class SupabaseSessionBackend implements StorageBackend {
     if (error || !data) {
       throw new Error(`Session not found: ${sessionId}`);
     }
-    return rowToSession(data as SessionRow);
+    return this.fromRow(data as SessionRow);
   }
 
-  async updateSession(session: Session): Promise<void> {
+  async updateSession(session: T): Promise<void> {
     const client = getSupabaseClient();
-    const row = sessionToRow(session);
+    const row = this.toRow(session);
     // @ts-ignore
     const query = client.from('sessions').update(row).eq('id', session.sessionId);
     const { error } = await query;

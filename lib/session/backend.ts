@@ -1,15 +1,22 @@
 import fs from 'fs';
 import path from 'path';
-import { sessionSchema, type Session } from './schema';
+import { z } from 'zod';
 
-export interface StorageBackend {
-  createSession(session: Session): Promise<void>;
-  getSession(sessionId: string): Promise<Session>;
-  updateSession(session: Session): Promise<void>;
+export interface SessionIdentity {
+  sessionId: string;
 }
 
-export class FileSessionBackend implements StorageBackend {
-  constructor(private dir: string) {}
+export interface StorageBackend<T extends SessionIdentity> {
+  createSession(session: T): Promise<void>;
+  getSession(sessionId: string): Promise<T>;
+  updateSession(session: T): Promise<void>;
+}
+
+export class FileSessionBackend<T extends SessionIdentity> implements StorageBackend<T> {
+  constructor(
+    private dir: string,
+    private schema: z.ZodType<T>,
+  ) {}
 
   private ensureDirectory(): void {
     if (!fs.existsSync(this.dir)) {
@@ -21,7 +28,7 @@ export class FileSessionBackend implements StorageBackend {
     return path.join(this.dir, `${sessionId}.json`);
   }
 
-  async createSession(session: Session): Promise<void> {
+  async createSession(session: T): Promise<void> {
     this.ensureDirectory();
     fs.writeFileSync(
       this.getSessionPath(session.sessionId),
@@ -29,18 +36,18 @@ export class FileSessionBackend implements StorageBackend {
     );
   }
 
-  async getSession(sessionId: string): Promise<Session> {
+  async getSession(sessionId: string): Promise<T> {
     const filePath = this.getSessionPath(sessionId);
     if (!fs.existsSync(filePath)) {
       throw new Error(`Session not found: ${sessionId}`);
     }
     const content = fs.readFileSync(filePath, 'utf-8');
-    return sessionSchema.parse(JSON.parse(content));
+    return this.schema.parse(JSON.parse(content));
   }
 
-  async updateSession(session: Session): Promise<void> {
+  async updateSession(session: T): Promise<void> {
     const filePath = this.getSessionPath(session.sessionId);
-    const validated = sessionSchema.parse(session);
+    const validated = this.schema.parse(session);
     fs.writeFileSync(filePath, JSON.stringify(validated, null, 2));
   }
 }

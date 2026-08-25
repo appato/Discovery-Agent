@@ -90,8 +90,9 @@ export const sessionSchema = z.object({
 });
 
 export type Session = z.infer<typeof sessionSchema>;
+export type StructuredBrief = z.infer<typeof structuredBriefSchema>;
 
-export function createDefaultStructuredBrief(): z.infer<typeof structuredBriefSchema> {
+export function createDefaultStructuredBrief(): StructuredBrief {
   return {
     product_context: {
       problem_statement: { value: '', citations: [] },

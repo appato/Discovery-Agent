@@ -1,138 +1,49 @@
 import { NextRequest } from 'next/server';
 import { SessionStore } from '@/lib/session/store';
 import { generateChatResponse, generateFallbackResponse, type DiscoveryOutput } from '@/lib/llm/chat';
-import { extractText, isSupportedFile, isImageFile } from '@/lib/files';
-import { createImageStorage } from '@/lib/storage/image-storage';
-import { extractUrls, fetchWebsiteContent } from '@/lib/website';
+import { ChatTurnInputError, prepareChatTurn } from '@/lib/session/chat-turn';
 import { generateBriefMarkdown } from '@/lib/brief-export';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-
   const store = new SessionStore();
   const session = await store.getSession(id);
-
-  const now = new Date().toISOString();
   const turnNumber = session.chatHistory.length + 1;
 
-  const contentType = request.headers.get('content-type') || '';
-  let message = '';
-  let extractedFileText: string | null = null;
-  let uploadedFileName: string | null = null;
-  let uploadedImageMeta: {
-    id: string;
-    originalName: string;
-    storedPath: string;
-    mimeType: string;
-    uploadedAt: string;
-  } | null = null;
-  let imageBase64: string | null = null;
-
-  if (contentType.includes('multipart/form-data')) {
-    const formData = await request.formData();
-    const rawMessage = formData.get('message');
-    message = typeof rawMessage === 'string' ? rawMessage : '';
-    const file = formData.get('file') as File | null;
-
-    if (file && file.size > 0) {
-      uploadedFileName = file.name;
-      const buffer = Buffer.from(await file.arrayBuffer());
-
-      if (!isSupportedFile(file.type)) {
-        return new Response(
-          JSON.stringify({ error: `Unsupported file type: ${uploadedFileName}` }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (isImageFile(file.type)) {
-        imageBase64 = buffer.toString('base64');
-        const imageStorage = createImageStorage();
-        uploadedImageMeta = await imageStorage.storeImage(buffer, id, file.name, file.type);
-      } else {
-        extractedFileText = await extractText(buffer, file.name, file.type);
-      }
+  let preparedTurn;
+  try {
+    preparedTurn = await prepareChatTurn({
+      request,
+      sessionId: id,
+      turnNumber,
+      chatHistory: session.chatHistory.map((history) => ({
+        role: history.role,
+        content: history.content,
+      })),
+    });
+  } catch (error) {
+    if (error instanceof ChatTurnInputError) {
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      );
     }
-  } else {
-    const body = await request.json();
-    message = typeof body.message === 'string' ? body.message : '';
+    throw error;
   }
 
-  const fetchedWebsitesData: Array<{
-    url: string;
-    title: string;
-    metaDescription: string;
-    extractedText: string;
-    turnNumber: number;
-    fetchedAt: string;
-  }> = [];
-  let websiteContext = '';
-
-  if (message) {
-    const urls = extractUrls(message);
-    for (const url of urls) {
-      const content = await fetchWebsiteContent(url);
-      if (content) {
-        fetchedWebsitesData.push({
-          url,
-          title: content.title,
-          metaDescription: content.metaDescription,
-          extractedText: content.visibleText,
-          turnNumber,
-          fetchedAt: new Date().toISOString(),
-        });
-        websiteContext += `\n\n[Website: ${url}]\nTitle: ${content.title}\nDescription: ${content.metaDescription}\nContent: ${content.visibleText}\n[End of ${url}]`;
-      }
-    }
-  }
-
-  if (websiteContext) {
-    websiteContext = `\n\nThe client shared the following website links. Their content has been fetched and is provided below for context:${websiteContext}`;
-  }
-
-  const userMessage = {
-    turnNumber,
-    role: 'user' as const,
-    content: uploadedFileName
-      ? uploadedImageMeta
-        ? `[Image uploaded: ${uploadedFileName}]` + (message ? `\n\nUser message: ${message}` : '')
-        : `[File uploaded: ${uploadedFileName}]\n\n${extractedFileText}` + (message ? `\n\nUser message: ${message}` : '')
-      : message,
-    contentType: uploadedFileName
-      ? uploadedImageMeta ? 'image_upload' as const : 'file_upload' as const
-      : 'text' as const,
-    timestamp: now,
-  };
-
-  const llmMessages: Array<{ role: string; content: string | Array<{ type: string; text?: string; image?: string; mimeType?: string }> }> = session.chatHistory.map((h) => ({
-    role: h.role,
-    content: h.content as string,
-  }));
-
-  if (uploadedImageMeta && imageBase64) {
-    const parts: Array<{ type: string; text?: string; image?: string; mimeType?: string }> = [];
-    if (message) {
-      parts.push({ type: 'text', text: `The client uploaded an image called "${uploadedFileName}" and said: ${message}${websiteContext}` });
-    } else {
-      parts.push({ type: 'text', text: `The client uploaded an image called "${uploadedFileName}". Please describe what you see and ask relevant discovery questions about it.${websiteContext}` });
-    }
-    parts.push({ type: 'image', image: imageBase64, mimeType: uploadedImageMeta.mimeType });
-    llmMessages.push({ role: 'user', content: parts });
-  } else {
-    const llmUserContent = uploadedFileName
-      ? `The client uploaded a file called "${uploadedFileName}". Here is the content:\n\n---\n${extractedFileText}\n---` + (message ? `\n\nThe client also said: ${message}` : '')
-      : message;
-    llmMessages.push({ role: 'user', content: llmUserContent + websiteContext });
-  }
-
+  const {
+    userMessage,
+    llmMessages,
+    uploadedImageMeta,
+    fetchedWebsitesData,
+  } = preparedTurn;
   const turnsSinceLastRecap = turnNumber - session.lastRecapTurn;
 
   let partialObjectStream: AsyncIterable<unknown>;
   let object: Promise<DiscoveryOutput>;
-  let fallback = false;
 
   try {
     const result = await generateChatResponse({
@@ -146,12 +57,13 @@ export async function POST(
     object = result.object;
   } catch {
     const fallbackMessage = await generateFallbackResponse({
-      messages: llmMessages.map((m) => ({
-        role: m.role,
-        content: typeof m.content === 'string' ? m.content : m.content.find(p => p.type === 'text')?.text || '[image]',
+      messages: llmMessages.map((message) => ({
+        role: message.role,
+        content: typeof message.content === 'string'
+          ? message.content
+          : message.content.find((part) => part.type === 'text')?.text || '[image]',
       })),
     });
-    fallback = true;
 
     const assistantMessage = {
       turnNumber: turnNumber + 1,
@@ -183,9 +95,9 @@ export async function POST(
         message: fallbackMessage,
         coverage: updatedSession.coverage,
         turnNumber: assistantMessage.turnNumber,
-        fallback,
+        fallback: true,
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
   }
 
@@ -195,7 +107,6 @@ export async function POST(
   }
 
   const finalObject = await object;
-
   const assistantMessage = {
     turnNumber: turnNumber + 1,
     role: 'assistant' as const,
@@ -216,19 +127,19 @@ export async function POST(
     contradictions: [
       ...session.contradictions,
       ...finalObject.state_update.contradictions.filter(
-        (c: string) => !session.contradictions.includes(c)
+        (contradiction: string) => !session.contradictions.includes(contradiction),
       ),
     ],
     assumptions: [
       ...session.assumptions,
       ...finalObject.state_update.assumptions.filter(
-        (a: string) => !session.assumptions.includes(a)
+        (assumption: string) => !session.assumptions.includes(assumption),
       ),
     ],
     openQuestions: [
       ...session.openQuestions,
       ...finalObject.state_update.open_questions.filter(
-        (q: string) => !session.openQuestions.includes(q)
+        (question: string) => !session.openQuestions.includes(question),
       ),
     ],
     outOfScopeTopics: [

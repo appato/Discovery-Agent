@@ -44,14 +44,18 @@ export async function POST(request: NextRequest) {
 
   let initialChatHistory: Array<{ role: string; content: string }> = [];
   if (hasContent) {
-    const assistantMessage = await generateInitialAssistantMessage({
-      clientName: clientName || undefined,
-      projectName: projectName || undefined,
-      brief: structuredBrief,
-      coverage,
-    });
-    if (assistantMessage) {
-      initialChatHistory = [{ role: 'assistant', content: assistantMessage }];
+    try {
+      const assistantMessage = await generateInitialAssistantMessage({
+        clientName: clientName || undefined,
+        projectName: projectName || undefined,
+        brief: structuredBrief,
+        coverage,
+      });
+      if (assistantMessage) {
+        initialChatHistory = [{ role: 'assistant', content: assistantMessage }];
+      }
+    } catch {
+      // A welcome message is optional; keep the parsed session usable if inference is unavailable.
     }
   }
 

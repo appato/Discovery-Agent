@@ -1,0 +1,79 @@
+{
+  "sessionId": "54bbe80d-d823-41a4-8422-bd80985b48e7",
+  "projectId": "2b719eca-9794-4733-b565-6e9ae9b92980",
+  "status": "in_discovery",
+  "createdAt": "2026-08-25T09:21:23.416Z",
+  "updatedAt": "2026-08-25T09:22:06.911Z",
+  "shareableUrl": "/business-idea/session/54bbe80d-d823-41a4-8422-bd80985b48e7",
+  "metadata": {
+    "businessName": "Jay Art Wedding Card",
+    "ideaName": "CRM And Marketing Automation Tool",
+    "agentType": "business_idea"
+  },
+  "chatHistory": [
+    {
+      "turnNumber": 1,
+      "role": "user",
+      "content": "Hello",
+      "contentType": "text",
+      "timestamp": "2026-08-25T09:22:00.906Z"
+    },
+    {
+      "turnNumber": 2,
+      "role": "assistant",
+      "content": "Hello! Let’s start with **Jay Art Wedding Card** as it operates today.\n\n**What does your business currently offer customers?**",
+      "contentType": "text",
+      "timestamp": "2026-08-25T09:22:06.911Z"
+    }
+  ],
+  "businessIdeaBrief": {
+    "business_context": {
+      "business_name": "Jay Art Wedding Card",
+      "industry": "",
+      "current_offering": "",
+      "target_customers": "",
+      "business_model": "",
+      "differentiators": "",
+      "current_challenges": ""
+    },
+    "idea_opportunity": {
+      "idea_summary": "",
+      "customer_problem": "",
+      "target_users": "",
+      "desired_outcomes": "",
+      "existing_alternatives": "",
+      "value_proposition": ""
+    },
+    "project_definition": {
+      "project_goal": "",
+      "proposed_solution": "",
+      "primary_user_journey": "",
+      "must_have_outcomes": "",
+      "nice_to_have_outcomes": "",
+      "scope_boundaries": "",
+      "success_criteria": ""
+    },
+    "assumptions": [],
+    "open_questions": [
+      "What does Jay Art Wedding Card currently offer customers?"
+    ],
+    "approval_status": "draft"
+  },
+  "coverage": {
+    "businessContext": 0,
+    "ideaOpportunity": 0,
+    "projectDefinition": 0
+  },
+  "contradictions": [],
+  "assumptions": [],
+  "openQuestions": [
+    "What does Jay Art Wedding Card currently offer customers?"
+  ],
+  "recapHistory": [],
+  "lastRecapTurn": 0,
+  "outOfScopeTopics": [],
+  "llmReasoning": "The business name is known, but the rest of the business context is missing. Establishing the current offering is the clearest starting point before exploring the opportunity or defining a project.",
+  "briefMarkdown": "",
+  "uploadedImages": [],
+  "fetchedWebsites": []
+}

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Discovery Agent",
-  description: "AI-powered client requirement intake and discovery sessions",
+  title: "Appato AI Intake Guides",
+  description: "Choose between AI-guided product discovery and business idea clarification.",
 };
 
 export default function RootLayout({

@@ -284,22 +284,43 @@ export async function generateChatResponse(args: {
   );
 
   // DeepSeek sometimes emits ANSI escape codes in its output; strip them.
-  // The ESC character (\x1b) gets dropped by browsers, leaving visible [1m, [36m, [0m fragments.
-  const sanitizePartial = async function* sanitizePartial(
-    stream: AsyncIterable<unknown>,
-  ): AsyncIterable<unknown> {
-    for await (const partial of stream) {
+  // Keep the provider stream identity so callers can retain stream metadata.
+  const sanitizePartial = (stream: AsyncIterable<unknown>): AsyncIterable<unknown> => {
+    const iteratorFactory = stream[Symbol.asyncIterator];
+    const sanitize = (partial: unknown): unknown => {
       if (partial && typeof partial === 'object' && 'message' in partial && typeof (partial as Record<string, unknown>).message === 'string') {
         const p = partial as Record<string, unknown>;
-        yield { ...p, message: stripAnsi(p.message as string) };
-      } else {
-        yield partial;
+        return { ...p, message: stripAnsi(p.message as string) };
       }
+      return partial;
+    };
+
+    try {
+      Object.defineProperty(stream, Symbol.asyncIterator, {
+        configurable: true,
+        value: () => (async function* sanitizeStream() {
+          const iterator = iteratorFactory.call(stream);
+          while (true) {
+            const next = await iterator.next();
+            if (next.done) return;
+            yield sanitize(next.value);
+          }
+        })(),
+      });
+      return stream;
+    } catch {
+      return (async function* sanitizeFallback() {
+        for await (const partial of stream) {
+          yield sanitize(partial);
+        }
+      })();
     }
   };
 
+  const partialObjectStream = sanitizePartial(result.partialObjectStream);
+
   return {
-    partialObjectStream: sanitizePartial(result.partialObjectStream),
+    partialObjectStream,
     object: result.object.then((obj) => ({
       ...obj,
       message: stripAnsi(obj.message),

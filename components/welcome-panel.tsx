@@ -8,13 +8,20 @@ import {
   SparklesIcon,
   CheckBadgeIcon,
 } from '@heroicons/react/24/outline';
+import { discoveryLandingConfig, type LandingConfig, type LandingStepIcon } from '@/lib/landing';
 
-export function WelcomePanel() {
+const stepIcons: Record<LandingStepIcon, typeof DocumentTextIcon> = {
+  document: DocumentTextIcon,
+  sparkles: SparklesIcon,
+  chat: ChatBubbleLeftRightIcon,
+  check: CheckBadgeIcon,
+};
+
+export function WelcomePanel({ config = discoveryLandingConfig }: { config?: LandingConfig }) {
   return (
     <div className="relative flex flex-col justify-center min-h-screen overflow-hidden bg-zinc-950">
       <AnimatedBackground />
 
-      {/* Frosted glass overlay */}
       <div className="relative z-10 flex flex-col justify-center h-full px-10 py-16 backdrop-blur-3xl bg-zinc-950/50">
         <div className="flex flex-col mx-auto gap-10">
           <div className="flex flex-col gap-5">
@@ -33,18 +40,12 @@ export function WelcomePanel() {
                 Appato
               </p>
               <h1 className="text-3xl font-bold text-white tracking-tight">
-                Discovery Agent
+                {config.agentTitle}
               </h1>
             </div>
 
             <p className="text-base leading-relaxed text-zinc-400">
-              Welcome to Appato! You have taken the first step towards a making your vision come to life. 
-              <br />
-              <br />
-              Our AI-powered Discovery Agent
-              guides you through a natural conversation, capturing
-              everything from product context and functional needs to
-              aesthetic direction.
+              {config.intro}
             </p>
           </div>
 
@@ -54,30 +55,16 @@ export function WelcomePanel() {
             </p>
 
             <div className="flex flex-col gap-4">
-              <Step
-                icon={<DocumentTextIcon />}
-                index={1}
-                title="Share requirements"
-                description="Upload a brief or describe your project in a few sentences. Our AI extracts what matters."
-              />
-              <Step
-                icon={<SparklesIcon />}
-                index={2}
-                title="AI structures the intake"
-                description="Your requirements are parsed into a structured brief covering product, functional, and aesthetic domains."
-              />
-              <Step
-                icon={<ChatBubbleLeftRightIcon />}
-                index={3}
-                title="Collaborative discovery"
-                description="The agent asks thoughtful questions, fills gaps, and refines your vision through conversation."
-              />
-              <Step
-                icon={<CheckBadgeIcon />}
-                index={4}
-                title="Comprehensive brief"
-                description="Get a polished, developer-ready brief that captures the full scope of your project."
-              />
+              {config.steps.map((step, index) => (
+                <Step
+                  key={step.title}
+                  icon={stepIcons[step.icon]}
+                  index={index + 1}
+                  title={step.title}
+                  description={step.description}
+                  totalSteps={config.steps.length}
+                />
+              ))}
             </div>
           </div>
 
@@ -91,23 +78,27 @@ export function WelcomePanel() {
 }
 
 function Step({
-  icon,
+  icon: Icon,
   index,
   title,
   description,
+  totalSteps,
 }: {
-  icon: React.ReactNode;
+  icon: typeof DocumentTextIcon;
   index: number;
   title: string;
   description: string;
+  totalSteps: number;
 }) {
   return (
     <div className="flex gap-4">
       <div className="flex flex-col items-center gap-1 pt-0.5">
         <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-          <span className="text-blue-400 w-4 h-4">{icon}</span>
+          <span className="text-blue-400 w-4 h-4">
+            <Icon aria-hidden="true" />
+          </span>
         </div>
-        {index < 4 && (
+        {index < totalSteps && (
           <div className="w-px flex-1 bg-gradient-to-b from-white/10 to-transparent" />
         )}
       </div>

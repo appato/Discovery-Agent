@@ -7,13 +7,15 @@ import {
   CloudArrowUpIcon,
   ArrowPathIcon,
 } from '@heroicons/react/16/solid';
+import { discoveryLandingConfig, type LandingConfig } from '@/lib/landing';
 
-export function SeedForm() {
+export function SeedForm({ config = discoveryLandingConfig }: { config?: LandingConfig }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [clientName, setClientName] = useState('');
-  const [projectName, setProjectName] = useState('');
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(config.fields.map((field) => [field.key, ''])),
+  );
   const [file, setFile] = useState<File | null>(null);
   const [fileText, setFileText] = useState('');
   const [textareaValue, setTextareaValue] = useState('');
@@ -42,22 +44,22 @@ export function SeedForm() {
         });
 
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || 'Failed to extract text');
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || 'Failed to extract text');
         }
 
         const { text } = await res.json();
         setFileText(text);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : 'Failed to extract text from file'
+          err instanceof Error ? err.message : 'Failed to extract text from file',
         );
         setFile(null);
       } finally {
         setExtracting(false);
       }
     },
-    []
+    [],
   );
 
   function handleRemoveFile() {
@@ -88,7 +90,7 @@ export function SeedForm() {
     setIsDragging(false);
   }
 
-  async function handleDrop(e: React.DragEvent) {
+  function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -103,7 +105,7 @@ export function SeedForm() {
     setTouched(true);
 
     if (isEmpty) {
-      setError('Please provide either a file or some text describing the project requirements.');
+      setError(config.validationMessage);
       return;
     }
 
@@ -111,32 +113,36 @@ export function SeedForm() {
     setSubmitting(true);
 
     const formData = new FormData();
-    if (clientName.trim()) formData.append('client_name', clientName.trim());
-    if (projectName.trim()) formData.append('project_name', projectName.trim());
+    for (const field of config.fields) {
+      const value = fieldValues[field.key]?.trim();
+      if (value) {
+        formData.append(field.multipartName, value);
+      }
+    }
     if (file) {
-      formData.append('requirement_doc', file);
+      formData.append(config.contextFile.multipartName, file);
       if (fileText.trim()) {
-        formData.append('initial_text', fileText.trim());
+        formData.append(config.contextText.multipartName, fileText.trim());
       }
     } else {
-      formData.append('initial_text', textareaValue.trim());
+      formData.append(config.contextText.multipartName, textareaValue.trim());
     }
 
     try {
-      const res = await fetch('/api/projects', {
+      const res = await fetch(config.endpoint, {
         method: 'POST',
         body: formData,
       });
 
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error('Failed to create session');
+        throw new Error(data?.error || 'Failed to create session');
       }
 
-      const data = await res.json();
-      router.push(`/session/${data.sessionId}`);
+      router.push(`${config.sessionPath}/${data.sessionId}`);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
       );
       setSubmitting(false);
     }
@@ -152,10 +158,8 @@ export function SeedForm() {
     >
       <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl p-6 h-full">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-8 h-full">
-          {/* Left column — inputs, file, button */}
           <div className="flex flex-col gap-4">
             <div className="flex flex-col items-start gap-6 mb-8">
-              {/* Mobile-only logo */}
               <div className="lg:hidden w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -170,45 +174,47 @@ export function SeedForm() {
                   Appato
                 </p>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-zinc-100">
-                  Start a Discovery Session
+                  {config.formTitle}
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-zinc-400 max-w-sm">
-                  Provide your project details and our AI will begin the discovery process.
+                  {config.formDescription}
                 </p>
               </div>
             </div>
-            <input
-              type="text"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              placeholder="Client / Organization name (optional)"
-              className="rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 px-4 py-2.5 text-sm placeholder:text-gray-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              disabled={isBusy}
-            />
 
-            <input
-              type="text"
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-              placeholder="Project name (optional)"
-              className="rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 px-4 py-2.5 text-sm placeholder:text-gray-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              disabled={isBusy}
-            />
+            {config.fields.map((field) => (
+              <input
+                key={field.key}
+                type="text"
+                value={fieldValues[field.key] || ''}
+                onChange={(e) =>
+                  setFieldValues((previous) => ({
+                    ...previous,
+                    [field.key]: e.target.value,
+                  }))
+                }
+                placeholder={field.placeholder}
+                aria-label={field.label}
+                className="rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 px-4 py-2.5 text-sm placeholder:text-gray-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={isBusy}
+              />
+            ))}
 
             <div
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors ${isDragging
+              className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                isDragging
                   ? 'border-blue-400 bg-blue-50 dark:bg-blue-950'
                   : 'border-gray-300 dark:border-zinc-700 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950'
-                }`}
+              }`}
             >
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 className="hidden"
-                accept=".pdf,.txt,.md"
+                accept={config.contextFile.accept}
               />
 
               {extracting ? (
@@ -243,10 +249,10 @@ export function SeedForm() {
                   <CloudArrowUpIcon className="h-8 w-8 text-gray-400 dark:text-zinc-500" />
                   <div>
                     <p className="text-sm text-gray-600 dark:text-zinc-300">
-                      Drag and drop a requirement doc
+                      Drag and drop a document
                     </p>
                     <p className="text-xs text-gray-400 dark:text-zinc-500 mt-1">
-                      PDF, TXT, or Markdown files supported
+                      {config.contextFile.description}
                     </p>
                   </div>
                   <button
@@ -264,16 +270,16 @@ export function SeedForm() {
             <button
               type="submit"
               disabled={isBusy}
-              className={`w-full rounded-xl px-6 py-3 text-white font-medium text-sm transition-colors ${isBusy
+              className={`w-full rounded-xl px-6 py-3 text-white font-medium text-sm transition-colors ${
+                isBusy
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-gray-900 hover:bg-gray-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200'
-                }`}
+              }`}
             >
-              {submitting ? 'Creating session...' : 'Start Discovery Session'}
+              {submitting ? 'Creating session...' : config.submitLabel}
             </button>
           </div>
 
-          {/* Right column — textarea */}
           <div className="flex flex-col gap-4">
             <textarea
               value={displayText}
@@ -284,7 +290,8 @@ export function SeedForm() {
                   setTextareaValue(e.target.value);
                 }
               }}
-              placeholder="Paste or type your project requirements..."
+              placeholder={config.contextText.placeholder}
+              aria-label={`${config.agentTitle} starting context`}
               rows={10}
               className="w-full flex-1 rounded-lg border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 px-4 py-3 text-sm placeholder:text-gray-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y min-h-[320px] font-mono"
               disabled={isBusy}

@@ -1,32 +1,47 @@
-# Client Requirement Intake Agent
+# Appato Client Requirement Intake Agent
 
-A product-discovery system that captures rough client input — typed text, spoken input, uploaded documents, images, or website links — and guides the client through a structured clarification dialogue until the product definition is clear, consistent, and approval-ready.
+Appato provides two AI-guided intake flows:
 
-The agent focuses on three domains with a 20/40/40 balance:
+- **Product Discovery Agent** — turns rough product requirements into an approval-ready brief covering product context, functional requirements, and aesthetics & UX.
+- **Business Idea Agent** — turns a business owner's rough idea and supporting context into a shared understanding of the business and a concrete project definition.
 
-- **Product Context (20%)** — problem, users, success criteria, boundaries
-- **Functional Requirements (40%)** — workflows, features, integrations, roles, edge cases
-- **Aesthetics & UX (40%)** — brand personality, visual style, tone, interactions, accessibility
+Both flows accept typed text, speech, uploaded documents, images during chat, and website links. They ask one clarification question at a time, track objective coverage, detect contradictions, recap the conversation, and export a Markdown brief.
 
-It deliberately avoids budget, timeline, staffing, delivery, and commercial topics — those are deferred to the human team.
+The agents deliberately avoid budget, pricing, timeline, staffing, delivery, contracts, and commercial advice. Those topics are handled by the human team.
+
+## Agent coverage
+
+### Product Discovery Agent
+
+- **Product Context** — problem, users, success criteria, boundaries
+- **Functional Requirements** — workflows, features, integrations, roles, edge cases
+- **Aesthetics & UX** — brand personality, visual style, tone, interactions, accessibility
+
+### Business Idea Agent
+
+- **Business Context** — offering, industry, customers, general business model, differentiators, current challenges
+- **Idea Opportunity** — idea summary, customer problem, target users, desired outcomes, alternatives, value proposition
+- **Project Definition** — project goal, proposed solution, primary journey, must-have and nice-to-have outcomes, boundaries, success criteria
+
+Normal Business Idea Brief completion requires at least 70% coverage in all three business domains and the owner's confirmation. An explicit early stop is allowed but the exported brief carries an incomplete-information warning.
 
 ## Features
 
-- Multi-modal intake: text, speech (Web Speech API), file upload (`.txt`, `.md`, `.pdf`), image upload (`.png`, `.jpg`, `.gif`), and website link fetching
-- AI-guided discovery dialogue powered by GPT-4o with structured JSON output
-- Real-time coverage scoring across the three discovery domains
-- Contradiction detection and out-of-scope topic handling
-- Mid-session recaps and a final structured brief exported as Markdown
-- Staff pre-seeding API (`POST /api/projects`) for creating sessions ahead of time
-- Link-based access — clients do not authenticate; the session URL is the credential
+- Root chooser with independent `/discovery` and `/business-idea` entry points
+- Shared conversational UI with agent-specific coverage, review, approval, and download copy
+- Product Discovery Agent backed by DigitalOcean inference
+- Business Idea Agent backed by OpenRouter model `openai/gpt-5.6-sol`
+- File-based or Supabase session persistence using the existing `sessions` table and JSONB artifact columns
+- Staff pre-seeding APIs for both product and business intake
+- Link-based access — clients and business owners do not authenticate; the session URL is the credential
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS |
-| AI / LLM | Vercel AI SDK + OpenAI GPT-4o |
-| Persistence | Flat JSON files (`sessions/`) |
+| AI / LLM | Vercel AI SDK; DigitalOcean `deepseek-v4-pro` for product discovery; OpenRouter `openai/gpt-5.6-sol` for business ideas |
+| Persistence | Flat JSON files (`sessions/`) or Supabase |
 | Deployment | Docker (self-hosted) with a mounted volume |
 | Testing | Vitest, Testing Library, jsdom |
 
@@ -35,14 +50,16 @@ It deliberately avoids budget, timeline, staffing, delivery, and commercial topi
 ### Prerequisites
 
 - Node.js 20+
-- An OpenAI API key
+- `DIGITALOCEAN_TOKEN` to use the Product Discovery Agent
+- `OPENROUTER_API_KEY` to use the Business Idea Agent
 
 ### Environment
 
 Create a `.env.local` file at the project root:
 
 ```bash
-OPENAI_API_KEY=sk-...
+DIGITALOCEAN_TOKEN=doo_v1_...
+OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
 Optional overrides:
@@ -50,6 +67,7 @@ Optional overrides:
 ```bash
 SESSIONS_DIR=sessions       # default: sessions
 UPLOADS_DIR=uploads         # default: uploads
+STORAGE_BACKEND=file        # file or supabase
 ```
 
 ### Development
@@ -59,7 +77,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). The root page presents both AI guides.
 
 ### Docker
 
@@ -67,34 +85,35 @@ Open [http://localhost:3000](http://localhost:3000).
 docker compose up --build
 ```
 
-Maps `sessions/` as a volume so session data persists across container restarts. The service listens on port 3000.
+Maps `sessions/` as a volume so both product and business sessions persist across container restarts. The service listens on port 3000.
 
 ## Project Structure
 
 ```
 app/
-  api/projects/          # POST — staff pre-seeding API
-  api/session/[id]/      # GET/PATCH — session CRUD
-  session/[id]/          # Client chat interface
-  page.tsx               # Landing / session creation
+  page.tsx                         # AI guide chooser
+  discovery/page.tsx               # Product Discovery landing
+  business-idea/page.tsx           # Business Idea landing
+  api/projects/                    # Product intake creation
+  api/business-ideas/              # Business intake creation and session APIs
+  api/session/[id]/                # Product session APIs
+  session/[id]/                    # Product chat interface
+  business-idea/session/[id]/      # Business Idea chat interface
+components/
+  session-chat.tsx                 # Shared product/business chat UI
 lib/
-  llm/
-    chat.ts              # GPT-4o streaming chat with structured output
-    parse.ts             # Initial document parsing
-  session/
-    store.ts             # JSON file-based session persistence
-    types.ts             # Session data model
-  files.ts               # File upload & image handling
-components/              # React UI components
-sessions/                # Session JSON files (volume-mounted in Docker)
-tests/                   # Vitest test suite
+  business-idea/                   # Business schema, coverage, LLM, export, storage
+  llm/                             # DigitalOcean product orchestration and providers
+  session/                         # Shared storage and chat-turn preparation
+sessions/                           # Session JSON files (volume-mounted in Docker)
+tests/                              # Vitest test suite
 ```
 
 ## API
 
-### Pre-seeding API
+### Product Discovery intake
 
-`POST /api/projects` (multipart/form-data)
+`POST /api/projects` (`multipart/form-data`)
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -103,28 +122,53 @@ tests/                   # Vitest test suite
 | `requirement_doc` | file | no | `.txt`, `.md`, or `.pdf` to pre-load |
 | `initial_text` | string | no | Free-text requirement to pre-load |
 
-Returns `201 Created` with `{ projectId, sessionId, shareableUrl, initialState, status }`.
+Returns `{ projectId, sessionId, shareableUrl, initialState, parseError? }`; the shareable URL is `/session/{id}`.
 
-### Session API
+### Product Discovery session
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/session/{id}` | Fetch full session state |
-| `PATCH` | `/api/session/{id}` | Update session (chat, brief, approval) |
+| `GET` | `/api/session/{id}` | Fetch product session state |
+| `PATCH` | `/api/session/{id}` | Approve or revise a product brief |
+| `POST` | `/api/session/{id}/chat` | Send a text or multipart chat turn |
+| `GET` | `/api/session/{id}/brief` | Download the product Markdown brief |
+
+### Business Idea intake
+
+`POST /api/business-ideas` (`multipart/form-data`)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `business_name` | string | no | Business name |
+| `idea_name` | string | no | Idea or project name |
+| `context_doc` | file | one of these | `.txt`, `.md`, or `.pdf`; takes precedence over text |
+| `initial_context` | string | one of these | Rough idea or business context |
+
+`OPENROUTER_API_KEY` must be configured. Missing configuration returns `503 { error: "Business Idea Agent is not configured." }`. Returns `{ projectId, sessionId, shareableUrl, initialState, parseError? }`; the shareable URL is `/business-idea/session/{id}`.
+
+### Business Idea session
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/business-ideas/session/{id}` | Fetch business session state and `businessIdeaBrief` |
+| `PATCH` | `/api/business-ideas/session/{id}` | Approve or revise a Business Idea Brief |
+| `POST` | `/api/business-ideas/session/{id}/chat` | Send a text or multipart chat turn |
+| `GET` | `/api/business-ideas/session/{id}/brief` | Download `business-idea-brief-{id-prefix}.md` |
 
 ## Session Lifecycle
 
-1. **Intake** — client uploads, types, or speaks a requirement
-2. **Discovery** — the agent asks one question at a time across the three domains
-3. **Recap** — summaries are produced when a domain is sufficiently explored
-4. **Approval** — when coverage reaches ~70% across all domains, a final brief is generated and the client can approve or revise
-
-Once approved, the Project is closed. New requirements need a new Project.
+1. **Choose a guide** at `/`, then submit text or a document through `/discovery` or `/business-idea`.
+2. **Intake** parses clear evidence into the selected structured artifact.
+3. **Clarification** asks one question at a time and updates objective coverage.
+4. **Recap** summarizes knowns, assumptions, open questions, and contradictions at natural boundaries.
+5. **Review** generates a brief when the owner explicitly stops or the configured coverage and confirmation rules are satisfied.
+6. **Approval** lets the owner approve or revise. Approved sessions are read-only and downloadable.
 
 ## Testing
 
 ```bash
-npm test
+npx vitest run tests/business-idea tests/components/agent-selector.test.tsx tests/session tests/llm
+npm run build
 ```
 
 ## License
